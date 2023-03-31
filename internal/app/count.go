@@ -10,6 +10,8 @@ import (
 	"strings"
 )
 
+const tempDir = "./temp"
+
 func Count(n uint, inputFilePath, outputFilePath string) error {
 	_, _ = n, outputFilePath
 
@@ -25,7 +27,7 @@ func Count(n uint, inputFilePath, outputFilePath string) error {
 		}
 	}()
 
-	err = os.MkdirAll("./temp", 0777)
+	err = os.MkdirAll(tempDir, 0777)
 	if err != nil {
 		return fmt.Errorf("create dir temp: %w", err)
 	}
@@ -40,6 +42,37 @@ func Count(n uint, inputFilePath, outputFilePath string) error {
 		}
 	}
 
+	err = makeOutputFile(outputFilePath)
+	if err != nil {
+		return fmt.Errorf("failed to make output file: %w", err)
+	}
+
+	return nil
+}
+
+func makeOutputFile(fileName string) error {
+	outputFile, err := os.OpenFile(fileName, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0777)
+	if err != nil {
+		return fmt.Errorf("failed to open file %v: %w", fileName, err)
+	}
+
+	files, err := os.ReadDir(tempDir)
+	if err != nil {
+		return fmt.Errorf("failed to read dir %v: %w", tempDir, err)
+	}
+
+	for _, tempFile := range files {
+		data, err := os.ReadFile(fmt.Sprintf("%v/%v", tempDir, tempFile.Name()))
+		if err != nil {
+			return fmt.Errorf("failed to read file %v: %w", tempFile.Name(), err)
+		}
+
+		_, err = outputFile.WriteString(string(data) + "\n")
+		if err != nil {
+			return fmt.Errorf("failed to write to file %v: %w", fileName, err)
+		}
+	}
+
 	return nil
 }
 
@@ -50,7 +83,7 @@ func handleQuery(query string) error {
 	var number int64
 
 	for i := 0; ; i++ {
-		fileName = fmt.Sprintf("./temp/%v(%v).txt", h, i)
+		fileName = fmt.Sprintf("%v/%v(%v).txt", tempDir, h, i)
 		data, err := os.ReadFile(fileName)
 
 		if errors.Is(err, os.ErrNotExist) {
@@ -90,8 +123,7 @@ func handleQuery(query string) error {
 		}
 	}()
 
-	data := fmt.Sprintf("%v %v", query, number)
-	_, err = file.Write([]byte(data))
+	_, err = file.Write([]byte(formatDataForQuery(query, number)))
 	if err != nil {
 		return fmt.Errorf("failed to write to file %v: %w", fileName, err)
 	}
@@ -99,10 +131,14 @@ func handleQuery(query string) error {
 	return nil
 }
 
-func parseDataInFile(data string) (string, int64, error) {
-	// data format: "{query} {number}"
+func formatDataForQuery(query string, number int64) string {
+	return fmt.Sprintf("%v\t%v", query, number)
+}
 
-	temp := strings.Split(data, " ")
+func parseDataInFile(data string) (string, int64, error) {
+	// data format: "{query}/t{number}"
+
+	temp := strings.Split(data, "\t")
 	if len(temp) != 2 {
 		return "", 0, fmt.Errorf("wrong data in file: %v", temp)
 	}
