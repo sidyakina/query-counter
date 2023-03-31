@@ -28,7 +28,7 @@ func handleQuery(query string) error {
 			return fmt.Errorf("failed to read file %v: %w", fileName, err)
 		}
 
-		queryInFile, prevNumber, err := parseDataInFile(string(data))
+		queryInFile, prevNumber, err := parseQueryData(string(data))
 		if err != nil {
 			return fmt.Errorf("failed to parse file %v: %w", fileName, err)
 		}
@@ -55,7 +55,7 @@ func handleQuery(query string) error {
 		}
 	}()
 
-	_, err = file.Write([]byte(formatDataForQuery(query, number)))
+	_, err = file.Write([]byte(formatQueryData(query, number)))
 	if err != nil {
 		return fmt.Errorf("failed to write to file %v: %w", fileName, err)
 	}
