@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"log"
+	"query-counter/internal/app"
 )
 
 func main() {
@@ -20,4 +21,9 @@ func main() {
 	}
 
 	log.Printf("%v, %v, %v", n, inputFile, outputFile)
+
+	err := app.Count(n, inputFile, outputFile)
+	if err != nil {
+		log.Panicf("failed to count: %v", err)
+	}
 }
