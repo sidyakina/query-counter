@@ -15,7 +15,7 @@ func Count(n uint, inputFilePath, outputFilePath string) error {
 	var readErr error
 
 	go func() {
-		// we can read our queries while handle previous ones, it isn't necessary for this case
+		// we can read our queries while handling previous ones, it isn't necessary for this case
 		// but can make our Count faster if queries' source is another
 		readErr = readQueries(inputFilePath, queries)
 		close(queries)

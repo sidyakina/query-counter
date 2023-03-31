@@ -8,11 +8,13 @@ import (
 	"os"
 )
 
+// for each query we create file for count using hash
+// if two queries have same hash "i" used for avoid collision
 func handleQuery(query string) error {
 	h := hash(query)
 
 	var fileName string
-	var number int64
+	var count int64
 
 	for i := 0; ; i++ {
 		fileName = fmt.Sprintf("%v/%v(%v).txt", tempDir, h, i)
@@ -20,7 +22,7 @@ func handleQuery(query string) error {
 
 		if errors.Is(err, os.ErrNotExist) {
 			// it's first occurrence of query
-			number = 1
+			count = 1
 			break
 		}
 
@@ -35,7 +37,7 @@ func handleQuery(query string) error {
 
 		if queryInFile == query {
 			// it isn't first occurrence of query
-			number = prevNumber + 1
+			count = prevNumber + 1
 
 			break
 		}
@@ -55,7 +57,7 @@ func handleQuery(query string) error {
 		}
 	}()
 
-	_, err = file.Write([]byte(formatQueryData(query, number)))
+	_, err = file.Write([]byte(formatQueryData(query, count)))
 	if err != nil {
 		return fmt.Errorf("failed to write to file %v: %w", fileName, err)
 	}
