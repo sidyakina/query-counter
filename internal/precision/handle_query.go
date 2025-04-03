@@ -1,4 +1,4 @@
-package app
+package precision
 
 import (
 	"crypto/md5"
