@@ -11,45 +11,23 @@ import (
 const tempFile = "temp.txt"
 
 func Count(n int, inputFilePath, outputFilePath string) error {
-	queries := NewQueries(int(n) - 1) // because we will have capacity + 1 while adding
+	counter := &Counter{}
+	defer clean(counter)
 
-	// source file
-	file, err := os.Open(inputFilePath)
+	err := counter.setup(n, inputFilePath)
 	if err != nil {
-		return fmt.Errorf("open input file: %w", err)
+		return fmt.Errorf("failed to setup counter: %v", err)
 	}
 
-	defer func() {
-		err := file.Close()
-		if err != nil {
-			log.Printf("failed to close input file: %v", err)
-		}
-	}()
-
-	// temp file for discarded queries
-	discardFile, err := os.OpenFile(tempFile, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0777)
-	if err != nil {
-		return fmt.Errorf("failed to create temp file %v: %w", tempFile, err)
-	}
-
-	defer func() {
-		err := discardFile.Close()
-		if err != nil {
-			log.Printf("failed to close input file: %v", err)
-		}
-
-		clean()
-	}()
-
-	scanner := bufio.NewScanner(file)
+	scanner := bufio.NewScanner(counter.inputFile)
 	index := 0
 	for scanner.Scan() {
 		q := scanner.Text()
 
 		sampleNumber := index / n
-		discardedQuery, count := queries.Add(q, sampleNumber)
+		discardedQuery, count := counter.queries.Add(q, sampleNumber)
 		if discardedQuery != "" {
-			_, err = discardFile.WriteString(formatQueryData(discardedQuery, count) + "\n")
+			_, err = counter.discardFile.WriteString(formatQueryData(discardedQuery, count) + "\n")
 			if err != nil {
 				return fmt.Errorf("failed to write discarded query to temp file: %w", err)
 			}
@@ -58,33 +36,74 @@ func Count(n int, inputFilePath, outputFilePath string) error {
 		index += 1
 	}
 
-	outputFile, err := os.OpenFile(outputFilePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0777)
+	err = counter.setupOutput(outputFilePath)
 	if err != nil {
-		return fmt.Errorf("failed to open file %v: %w", outputFilePath, err)
+		return fmt.Errorf("failed to setup counter before output: %v", err)
 	}
 
-	defer func() {
-		err := outputFile.Close()
-		if err != nil {
-			log.Printf("failed to close input file: %v", err)
-		}
-	}()
+	err = counter.outputResult()
+	if err != nil {
+		return fmt.Errorf("failed to output results: %v", err)
+	}
 
-	for k, v := range queries.queries {
-		_, err = outputFile.WriteString(formatQueryData(k, v.count) + "\n")
+	return nil
+}
+
+type Counter struct {
+	queries     *Queries
+	inputFile   *os.File
+	discardFile *os.File
+	outputFile  *os.File
+}
+
+func (c *Counter) setup(n int, inputFilePath string) error {
+	c.queries = NewQueries(int(n) - 1) // because we will have capacity + 1 while adding
+
+	var err error
+	// source file
+	c.inputFile, err = os.Open(inputFilePath)
+	if err != nil {
+		return fmt.Errorf("open input file: %w", err)
+	}
+
+	// temp file for discarded queries
+	c.discardFile, err = os.OpenFile(tempFile, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0777)
+	if err != nil {
+		return fmt.Errorf("failed to create temp file %v: %w", tempFile, err)
+	}
+
+	return nil
+}
+
+func (c *Counter) setupOutput(outputFilePath string) error {
+	var err error
+	c.outputFile, err = os.OpenFile(outputFilePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0777)
+	if err != nil {
+		return fmt.Errorf("failed to open output file %v: %w", outputFilePath, err)
+	}
+
+	// rewind file for reading
+	_, err = c.discardFile.Seek(0, io.SeekStart)
+	if err != nil {
+		return fmt.Errorf("failed to rewind discard file: %w", err)
+	}
+
+	return nil
+}
+
+func (c *Counter) outputResult() error {
+	var err error
+
+	for k, v := range c.queries.queries {
+		_, err = c.outputFile.WriteString(formatQueryData(k, v.count) + "\n")
 		if err != nil {
 			return fmt.Errorf("failed to write query to output file: %w", err)
 		}
 	}
 
-	_, err = discardFile.Seek(0, io.SeekStart)
-	if err != nil {
-		return fmt.Errorf("failed to rewind discard file: %w", err)
-	}
-
-	scanner = bufio.NewScanner(discardFile)
+	scanner := bufio.NewScanner(c.discardFile)
 	for scanner.Scan() {
-		_, err = outputFile.WriteString(scanner.Text() + "\n")
+		_, err = c.outputFile.WriteString(scanner.Text() + "\n")
 		if err != nil {
 			return fmt.Errorf("failed to write query to output file: %w", err)
 		}
@@ -93,13 +112,22 @@ func Count(n int, inputFilePath, outputFilePath string) error {
 	return nil
 }
 
-func clean() {
+func formatQueryData(query string, number int) string {
+	return fmt.Sprintf("%v\t%v", query, number)
+}
+
+func clean(counter *Counter) {
+	for _, file := range []*os.File{counter.inputFile, counter.discardFile, counter.outputFile} {
+		if file != nil {
+			err := file.Close()
+			if err != nil {
+				log.Printf("failed to close file %v: %v", file.Name(), err)
+			}
+		}
+	}
+
 	err := os.RemoveAll(tempFile)
 	if err != nil {
 		log.Printf("failed to remove temp file: %v", err)
 	}
-}
-
-func formatQueryData(query string, number int) string {
-	return fmt.Sprintf("%v\t%v", query, number)
 }
