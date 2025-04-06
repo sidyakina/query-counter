@@ -20,20 +20,16 @@ func Count(n int, inputFilePath, outputFilePath string) error {
 	}
 
 	scanner := bufio.NewScanner(counter.inputFile)
-	index := 0
 	for scanner.Scan() {
-		q := scanner.Text()
+		query := scanner.Text()
 
-		sampleNumber := index / n
-		discardedQuery, count := counter.queries.Add(q, sampleNumber)
-		if discardedQuery != "" {
-			_, err = counter.discardFile.WriteString(formatQueryData(discardedQuery, count) + "\n")
+		exists := counter.table.Add(query)
+		if !exists {
+			_, err = counter.dictionaryFile.WriteString(query + "\n")
 			if err != nil {
-				return fmt.Errorf("failed to write discarded query to temp file: %w", err)
+				return fmt.Errorf("failed to write query to temp file: %w", err)
 			}
 		}
-
-		index += 1
 	}
 
 	err = counter.setupOutput(outputFilePath)
@@ -50,14 +46,14 @@ func Count(n int, inputFilePath, outputFilePath string) error {
 }
 
 type Counter struct {
-	queries     *Queries
-	inputFile   *os.File
-	discardFile *os.File
-	outputFile  *os.File
+	table          *Table
+	inputFile      *os.File
+	dictionaryFile *os.File
+	outputFile     *os.File
 }
 
 func (c *Counter) setup(n int, inputFilePath string) error {
-	c.queries = NewQueries(int(n) - 1) // because we will have capacity + 1 while adding
+	c.table = NewTable(n)
 
 	var err error
 	// source file
@@ -67,7 +63,7 @@ func (c *Counter) setup(n int, inputFilePath string) error {
 	}
 
 	// temp file for discarded queries
-	c.discardFile, err = os.OpenFile(tempFile, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0777)
+	c.dictionaryFile, err = os.OpenFile(tempFile, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0777)
 	if err != nil {
 		return fmt.Errorf("failed to create temp file %v: %w", tempFile, err)
 	}
@@ -83,27 +79,21 @@ func (c *Counter) setupOutput(outputFilePath string) error {
 	}
 
 	// rewind file for reading
-	_, err = c.discardFile.Seek(0, io.SeekStart)
+	_, err = c.dictionaryFile.Seek(0, io.SeekStart)
 	if err != nil {
-		return fmt.Errorf("failed to rewind discard file: %w", err)
+		return fmt.Errorf("failed to rewind dictionary file: %w", err)
 	}
 
 	return nil
 }
 
 func (c *Counter) outputResult() error {
-	var err error
-
-	for k, v := range c.queries.queries {
-		_, err = c.outputFile.WriteString(formatQueryData(k, v.count) + "\n")
-		if err != nil {
-			return fmt.Errorf("failed to write query to output file: %w", err)
-		}
-	}
-
-	scanner := bufio.NewScanner(c.discardFile)
+	scanner := bufio.NewScanner(c.dictionaryFile)
 	for scanner.Scan() {
-		_, err = c.outputFile.WriteString(scanner.Text() + "\n")
+		query := scanner.Text()
+		count := c.table.Count(query)
+
+		_, err := c.outputFile.WriteString(formatQueryData(query, count) + "\n")
 		if err != nil {
 			return fmt.Errorf("failed to write query to output file: %w", err)
 		}
@@ -112,12 +102,12 @@ func (c *Counter) outputResult() error {
 	return nil
 }
 
-func formatQueryData(query string, number int) string {
-	return fmt.Sprintf("%v\t%v", query, number)
+func formatQueryData(query string, count int32) string {
+	return fmt.Sprintf("%v\t%v", query, count)
 }
 
 func clean(counter *Counter) {
-	for _, file := range []*os.File{counter.inputFile, counter.discardFile, counter.outputFile} {
+	for _, file := range []*os.File{counter.inputFile, counter.dictionaryFile, counter.outputFile} {
 		if file != nil {
 			err := file.Close()
 			if err != nil {
