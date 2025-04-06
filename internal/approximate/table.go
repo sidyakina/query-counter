@@ -50,7 +50,7 @@ func (t *Table) Add(query string) (exists bool) {
 
 		count := t.hashToCount[i][index]
 		// count is zero - we never encountered query with such hash index
-		// but if all count is not zero it can also mean we have encountered queries with collision indexes
+		// but if all counts aren't zero it can also mean we have encountered queries with colliding indexes
 		// query excluding from dictionary will be false positive
 		if count == 0 {
 			exists = false

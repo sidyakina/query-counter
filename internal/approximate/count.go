@@ -16,7 +16,7 @@ func Count(n int, inputFilePath, outputFilePath string) error {
 
 	err := counter.setup(n, inputFilePath)
 	if err != nil {
-		return fmt.Errorf("failed to setup counter: %v", err)
+		return fmt.Errorf("failed to setup counter: %w", err)
 	}
 
 	scanner := bufio.NewScanner(counter.inputFile)
@@ -34,12 +34,12 @@ func Count(n int, inputFilePath, outputFilePath string) error {
 
 	err = counter.setupOutput(outputFilePath)
 	if err != nil {
-		return fmt.Errorf("failed to setup counter before output: %v", err)
+		return fmt.Errorf("failed to setup counter before output: %w", err)
 	}
 
 	err = counter.outputResult()
 	if err != nil {
-		return fmt.Errorf("failed to output results: %v", err)
+		return fmt.Errorf("failed to output results: %w", err)
 	}
 
 	return nil
