@@ -46,3 +46,143 @@ Possible improvements:
 - Using `Double Hashing`, `Universal Hashing` or just more fast hashes to count indexes in table (more fast will make algorithm faster, hash with fewer collisions will make more exact result); 
 - More rows will make probability of error less;
 - More columns (with more memory) will make more exact result.
+
+Results:
+- file with previous queries
+approximate with n = 5
+```
+$ time ./query-counter -n 5 -ifile "./files/input.txt" -ofile "./files/output.tsv" -type approximate
+2025/04/06 18:04:47 count with counter type: approximate
+
+real    0m0.004s
+user    0m0.002s
+sys     0m0.002s
+
+// output
+q4	4
+q1	1
+q2	2
+q3	5
+```
+approximate with n = 10 will give same results as precision
+```
+time ./query-counter -n 10 -ifile "./files/input.txt" -ofile "./files/output.tsv" -type approximate
+2025/04/06 18:11:15 count with counter type: approximate
+
+real    0m0.002s
+user    0m0.002s
+sys     0m0.001s
+
+// output
+q4	4
+q1	1
+q2	2
+q3	3
+m2	2
+
+```
+
+precision
+```
+ time ./query-counter -n 5 -ifile "./files/input.txt" -ofile "./files/exact_output.tsv" -type precision
+2025/04/06 18:06:53 count with counter type: precision
+
+real    0m0.014s
+user    0m0.002s
+sys     0m0.004s
+
+// output
+m2	2
+q1	1
+q2	2
+q3	3
+q4	4
+```
+
+- file with queries from task
+  approximate with n = 5
+```
+$ time ./query-counter -n 5 -ifile "./files/input_from_task.txt" -ofile "./files/output.tsv" -type approximate
+2025/04/06 18:13:12 count with counter type: approximate
+
+real    0m0.004s
+user    0m0.002s
+sys     0m0.003s
+
+// output
+this	2
+test	2
+asd	2
+the	2
+end	2
+sad	1
+is	2
+only	1
+```
+approximate with n = 3 will give same results as precision
+```
+time ./query-counter -n 3 -ifile "./files/input_from_task.txt" -ofile "./files/output.tsv" -type approximate
+2025/04/06 18:14:21 count with counter type: approximate
+
+real    0m0.004s
+user    0m0.000s
+sys     0m0.004s
+
+
+// output
+this	2
+test	2
+asd	2
+the	2
+end	2
+sad	1
+is	1
+my	1
+only	1
+
+```
+
+precision
+```
+ time ./query-counter -n 5 -ifile "./files/input_from_task.txt" -ofile "./files/exact_output.tsv" -type precision
+2025/04/06 18:15:55 count with counter type: precision
+
+real    0m0.013s
+user    0m0.002s
+sys     0m0.004s
+
+// output
+asd	2
+end	2
+is	1
+my	1
+only	1
+sad	1
+test	2
+the	2
+this	2
+```
+
+- file with 550 rows
+  approximate with n = 5
+```
+$ time ./query-counter -n 5 -ifile "./files/big_input.txt" -ofile "./files/output.tsv" -type approximate
+2025/04/06 18:18:30 count with counter type: approximate
+
+real    0m0.002s
+user    0m0.001s
+sys     0m0.002s
+```
+
+
+precision
+```
+ time ./query-counter -n 5 -ifile "./files/big_input.txt" -ofile "./files/exact_output.tsv" -type precision
+2025/04/06 18:20:09 count with counter type: precision
+
+real    0m0.029s
+user    0m0.004s
+sys     0m0.016s
+```
+
+With fie with 550 rows we can see real time (which includes IO operations) is much bigger for slow precision algorithm.

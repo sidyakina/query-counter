@@ -6,22 +6,23 @@ import (
 	"crypto/sha256"
 	"crypto/sha512"
 	"encoding/binary"
+	"hash"
 )
-
-type Table struct {
-	columns     int
-	hashToCount [][]int32
-}
 
 const (
 	rows = 4
 	c    = 4
 )
 
+type Table struct {
+	columns     int
+	hashToCount [rows][]int32
+}
+
 func NewTable(n int) *Table {
 	columns := c * n // additional info in README.md
 
-	hashToCount := make([][]int32, rows)
+	hashToCount := [rows][]int32{}
 	for i := 0; i < rows; i++ {
 		hashToCount[i] = make([]int32, columns)
 	}
@@ -29,12 +30,13 @@ func NewTable(n int) *Table {
 	return &Table{columns: columns, hashToCount: hashToCount}
 }
 
-func (t *Table) getIndexes(query string) [4]int {
-	indexes := [4]int{}
-	indexes[0] = int(binary.LittleEndian.Uint64(md5.New().Sum([]byte(query))) % uint64(t.columns))
-	indexes[1] = int(binary.LittleEndian.Uint64(sha1.New().Sum([]byte(query))) % uint64(t.columns))
-	indexes[2] = int(binary.LittleEndian.Uint64(sha256.New().Sum([]byte(query))) % uint64(t.columns))
-	indexes[3] = int(binary.LittleEndian.Uint64(sha512.New().Sum([]byte(query))) % uint64(t.columns))
+func (t *Table) getIndexes(query string) [rows]int {
+	indexes := [rows]int{}
+
+	for i, hashFunc := range [rows]hash.Hash{md5.New(), sha1.New(), sha256.New(), sha512.New()} {
+		sum := hashFunc.Sum([]byte(query))
+		indexes[i] = int(binary.LittleEndian.Uint64(sum) % uint64(t.columns))
+	}
 
 	return indexes
 }
@@ -44,32 +46,35 @@ func (t *Table) Add(query string) (exists bool) {
 
 	indexes := t.getIndexes(query)
 	for i := 0; i < rows; i++ {
-		idx := indexes[i]
+		index := indexes[i]
 
-		v := t.hashToCount[i][idx]
-		if v == 0 {
+		count := t.hashToCount[i][index]
+		// count is zero - we never encountered query with such hash index
+		// but if all count is not zero it can also mean we have encountered queries with collision indexes
+		// query excluding from dictionary will be false positive
+		if count == 0 {
 			exists = false
 		}
 
-		t.hashToCount[i][idx] = v + 1
+		t.hashToCount[i][index] = count + 1
 	}
 
 	return exists
 }
 
 func (t *Table) Count(query string) int32 {
-	count := int32(-1)
+	result := int32(-1)
 
 	indexes := t.getIndexes(query)
 	for i := 0; i < rows; i++ {
-		idx := indexes[i]
+		index := indexes[i]
 
-		v := t.hashToCount[i][idx]
-		if count == -1 || count > v {
-			count = v
+		count := t.hashToCount[i][index]
+		if result == -1 || result > count {
+			result = count
 		}
 	}
 
-	return count
+	return result
 
 }

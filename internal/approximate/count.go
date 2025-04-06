@@ -27,7 +27,7 @@ func Count(n int, inputFilePath, outputFilePath string) error {
 		if !exists {
 			_, err = counter.dictionaryFile.WriteString(query + "\n")
 			if err != nil {
-				return fmt.Errorf("failed to write query to temp file: %w", err)
+				return fmt.Errorf("failed to write query to dictionary file: %w", err)
 			}
 		}
 	}
@@ -116,7 +116,7 @@ func clean(counter *Counter) {
 		}
 	}
 
-	err := os.RemoveAll(tempFile)
+	err := os.Remove(tempFile)
 	if err != nil {
 		log.Printf("failed to remove temp file: %v", err)
 	}
